@@ -155,6 +155,15 @@ class StrictCoreTests(unittest.TestCase):
             result = bpy.ops.node.bn_search_add_node("EXEC_DEFAULT", node_type="GeometryNodeSetPosition")
             self.assertEqual(result, {"FINISHED"})
             self.assertEqual(tree.nodes.active.label, "Set Position / 位置を設定")
+            sound_node_id = "GeometryNodeSampleSoundFrequencies"
+            if hasattr(bpy.types, sound_node_id):
+                result = bpy.ops.node.bn_search_add_node("EXEC_DEFAULT", node_type=sound_node_id)
+                self.assertEqual(result, {"FINISHED"})
+                self.assertEqual(tree.nodes.active.bl_idname, sound_node_id)
+                self.assertEqual(
+                    tree.nodes.active.label,
+                    "Sample Sound Frequencies / 音声周波数サンプル",
+                )
             scanner.rebuild_cache()
             new_node = tree.nodes.new("GeometryNodeJoinGeometry")
             self.assertEqual(new_node.label, "")

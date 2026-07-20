@@ -48,7 +48,7 @@ class BN_OT_search_add_node(bpy.types.Operator):
         tree = scanner.current_tree(context)
         if not tree or not self.node_type:
             return {"CANCELLED"}
-        entry = search.translations.get_node_entry(self.node_type, bpy.app.version)
+        entry = search.get_entry(self.node_type)
         if not entry or tree.bl_idname not in entry.get("tree_types", [tree.bl_idname]):
             self.report({"ERROR"}, "Node is not available in this node tree")
             return {"CANCELLED"}

@@ -30,10 +30,9 @@ class SearchService:
         for node_id in node_ids:
             if not self.registry.exists(node_id):
                 continue
-            entry = dict(self.registry.entries.get(node_id, {}))
-            entry.update(self.translations.nodes.get(node_id, {}))
+            entry = self.get_entry(node_id)
             english = entry.get("english", node_id)
-            japanese = entry.get("japanese", "") or self.translations.translate_japanese(english)
+            japanese = entry.get("japanese", "")
             aliases = [*entry.get("aliases_en", []), *entry.get("aliases_ja", [])]
             names = [english, japanese, entry.get("japanese_short", ""), node_id]
             searchable = [self.normalize_query(value) for value in [*names, *aliases, entry.get("description_ja", "")]]
@@ -46,6 +45,16 @@ class SearchService:
                 "searchable": searchable,
             })
         return self.index
+
+    def get_entry(self, node_id):
+        if not self.registry.exists(node_id):
+            return None
+        entry = dict(self.registry.entries.get(node_id, {}))
+        entry.update(self.translations.nodes.get(node_id, {}))
+        english = entry.get("english", node_id)
+        entry["english"] = english
+        entry["japanese"] = entry.get("japanese", "") or self.translations.translate_japanese(english)
+        return entry
 
     def search(self, query="", tree_type=None, limit=100):
         normalized = self.normalize_query(query)
