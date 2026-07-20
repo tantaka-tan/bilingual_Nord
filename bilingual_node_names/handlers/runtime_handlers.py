@@ -34,7 +34,7 @@ def monitor_timer():
         return None
     preferences = get_preferences()
     interval = getattr(preferences, "monitor_interval", 0.75)
-    if not node_registry.discovered:
+    if not node_registry.discovered or node_registry.is_stale():
         node_registry.rebuild()
         search.rebuild_index()
     if getattr(preferences, "monitor_enabled", True) and getattr(preferences, "auto_apply_new_nodes", True):

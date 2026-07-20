@@ -21,6 +21,17 @@ from bilingual_node_names.constants import (
     PROP_ORIGINAL_LABEL,
 )
 from bilingual_node_names.services import labels, node_registry, scanner, search, translations
+from bilingual_node_names.services.node_registry import suppress_native_output
+from bilingual_node_names.handlers import runtime_handlers
+
+
+class BNTestRuntimeNode(bpy.types.Node):
+    bl_idname = "BNTestRuntimeNodeType"
+    bl_label = "Runtime Discovered Node"
+
+    @classmethod
+    def poll(cls, node_tree):
+        return node_tree.bl_idname == "GeometryNodeTree"
 
 
 def parse_arguments():
@@ -164,6 +175,19 @@ class StrictCoreTests(unittest.TestCase):
                     tree.nodes.active.label,
                     "Sample Sound Frequencies / 音声周波数サンプル",
                 )
+            cross_tree_node_id = "ShaderNodeClamp"
+            self.assertNotIn(cross_tree_node_id, translations.nodes)
+            self.assertEqual(
+                set(node_registry.entries[cross_tree_node_id]["tree_types"]),
+                {"GeometryNodeTree", "ShaderNodeTree"},
+            )
+            self.assertEqual(
+                search.search("Clamp", "GeometryNodeTree")[0].node_id,
+                cross_tree_node_id,
+            )
+            result = bpy.ops.node.bn_search_add_node("EXEC_DEFAULT", node_type=cross_tree_node_id)
+            self.assertEqual(result, {"FINISHED"})
+            self.assertEqual(tree.nodes.active.bl_idname, cross_tree_node_id)
             scanner.rebuild_cache()
             new_node = tree.nodes.new("GeometryNodeJoinGeometry")
             self.assertEqual(new_node.label, "")
@@ -188,6 +212,58 @@ class StrictCoreTests(unittest.TestCase):
                     failures.append(f"{tree_type}:{node_id}:{type(exc).__name__}:{exc}")
             bpy.data.node_groups.remove(tree)
         self.assertEqual(failures, [], "\n".join(failures))
+
+    def test_registry_matches_every_constructible_node_subclass(self):
+        candidates = node_registry.candidate_ids()
+
+        expected = set()
+        with suppress_native_output():
+            for tree_type in ("GeometryNodeTree", "ShaderNodeTree"):
+                tree = bpy.data.node_groups.new(f"BN_Audit_{tree_type}", tree_type)
+                try:
+                    for node_id in sorted(candidates):
+                        try:
+                            node = tree.nodes.new(node_id)
+                        except (RuntimeError, TypeError):
+                            continue
+                        expected.add((node_id, tree_type))
+                        tree.nodes.remove(node)
+                finally:
+                    bpy.data.node_groups.remove(tree)
+
+        actual = {
+            (node_id, tree_type)
+            for node_id, entry in node_registry.entries.items()
+            for tree_type in entry.get("tree_types", [])
+        }
+        print(json.dumps({
+            "metric": "node_discovery_coverage",
+            "subclasses": len(candidates),
+            "constructible_pairs": len(expected),
+            "registered_pairs": len(actual),
+        }))
+        self.assertEqual(actual, expected)
+
+    def test_runtime_custom_node_registration_is_detected(self):
+        node_id = BNTestRuntimeNode.bl_idname
+        self.assertNotIn(node_id, node_registry.entries)
+        bpy.utils.register_class(BNTestRuntimeNode)
+        try:
+            self.assertTrue(node_registry.is_stale())
+            self.assertIsNotNone(runtime_handlers.monitor_timer())
+            self.assertFalse(node_registry.is_stale())
+            self.assertEqual(
+                node_registry.entries[node_id]["tree_types"],
+                ["GeometryNodeTree"],
+            )
+            self.assertEqual(
+                search.search("Runtime Discovered Node", "GeometryNodeTree")[0].node_id,
+                node_id,
+            )
+        finally:
+            bpy.utils.unregister_class(BNTestRuntimeNode)
+            node_registry.rebuild()
+            search.rebuild_index()
 
     def test_malformed_user_dictionary_isolated(self):
         with tempfile.NamedTemporaryFile("w", encoding="utf-8", suffix=".json", delete=False) as stream:

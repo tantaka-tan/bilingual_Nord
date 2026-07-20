@@ -14,8 +14,8 @@ services = importlib.import_module(f"{module_name}.services")
 services.node_registry.rebuild()
 services.search.rebuild_index()
 
-node_id = "GeometryNodeSampleSoundFrequencies"
-if not hasattr(bpy.types, node_id):
+sound_node_id = "GeometryNodeSampleSoundFrequencies"
+if not hasattr(bpy.types, sound_node_id):
     print("Sample Sound Frequencies is unavailable in this Blender version")
     raise SystemExit(1)
 
@@ -45,13 +45,14 @@ space.node_tree = tree
 region = next(region for region in area.regions if region.type == "WINDOW")
 
 with bpy.context.temp_override(area=area, region=region, space_data=space, active_object=obj, object=obj):
-    result = bpy.ops.node.bn_search_add_node("EXEC_DEFAULT", node_type=node_id)
-
-node = tree.nodes.active
-expected_label = "Sample Sound Frequencies / 音声周波数サンプル"
-if result != {"FINISHED"}:
-    raise SystemExit(1)
-if node is None or node.bl_idname != node_id or node.label != expected_label:
-    raise SystemExit(1)
-
-print("INSTALLED_OPERATOR_ADD_OK", node.bl_idname, node.label)
+    for node_id, expected_label in (
+        (sound_node_id, "Sample Sound Frequencies / 音声周波数サンプル"),
+        ("ShaderNodeClamp", "Clamp / 範囲制限"),
+    ):
+        result = bpy.ops.node.bn_search_add_node("EXEC_DEFAULT", node_type=node_id)
+        node = tree.nodes.active
+        if result != {"FINISHED"}:
+            raise SystemExit(1)
+        if node is None or node.bl_idname != node_id or node.label != expected_label:
+            raise SystemExit(1)
+        print("INSTALLED_OPERATOR_ADD_OK", node.bl_idname, node.label)
