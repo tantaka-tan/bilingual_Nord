@@ -1,6 +1,9 @@
 import json
+import gettext
 from copy import deepcopy
 from pathlib import Path
+
+import bpy
 
 
 class TranslationService:
@@ -9,6 +12,7 @@ class TranslationService:
         self.nodes = {}
         self.revision = "unloaded"
         self.errors = []
+        self.official_japanese = None
 
     @property
     def translation_dir(self):
@@ -17,6 +21,7 @@ class TranslationService:
     def reload(self, user_path=None, blender_version=None):
         self.nodes = {}
         self.errors = []
+        self._load_official_japanese()
         revisions = []
         paths = [
             self.translation_dir / "geometry_nodes_ja.json",
@@ -48,6 +53,28 @@ class TranslationService:
         self.revision = revisions[-1] if revisions else "none"
         self.diagnostics.set_dictionary_errors(self.errors)
         return not self.errors
+
+    def _load_official_japanese(self):
+        self.official_japanese = None
+        for resource_type in ("LOCAL", "SYSTEM"):
+            resource_path = bpy.utils.resource_path(resource_type)
+            if not resource_path:
+                continue
+            path = Path(resource_path) / "datafiles" / "locale" / "ja" / "LC_MESSAGES" / "blender.mo"
+            if not path.exists():
+                continue
+            try:
+                with path.open("rb") as stream:
+                    self.official_japanese = gettext.GNUTranslations(stream)
+                return
+            except (OSError, UnicodeError):
+                continue
+
+    def translate_japanese(self, english):
+        if not english or self.official_japanese is None:
+            return ""
+        translated = self.official_japanese.gettext(english)
+        return translated if translated and translated != english else ""
 
     def _load_file(self, path):
         try:
@@ -97,7 +124,7 @@ class TranslationService:
         entry = self.get_node_entry(node.bl_idname, blender_version)
         english = (entry or {}).get("english") or getattr(node, "bl_label", "") or node.bl_idname
         japanese_key = "japanese_short" if use_short and (entry or {}).get("japanese_short") else "japanese"
-        japanese = (entry or {}).get(japanese_key, "")
+        japanese = (entry or {}).get(japanese_key, "") or self.translate_japanese(english)
         if use_dynamic and entry and entry.get("dynamic_title"):
             dynamic = entry["dynamic_title"]
             value = getattr(node, dynamic.get("property", ""), None)

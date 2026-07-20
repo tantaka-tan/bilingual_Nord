@@ -14,6 +14,15 @@ preferences_module = importlib.import_module(f"{module_name}.preferences")
 services = importlib.import_module(f"{module_name}.services")
 preferences = preferences_module.get_preferences()
 preferences.show_bilingual_labels = True
+services.node_registry.rebuild()
+services.search.rebuild_index()
+
+new_node_id = "GeometryNodeMergeLayers"
+if hasattr(bpy.types, new_node_id):
+    english = services.search.search("Merge Layers", "GeometryNodeTree")
+    japanese = services.search.search("レイヤー統合", "GeometryNodeTree")
+    if not english or not japanese or english[0].node_id != new_node_id or japanese[0].node_id != new_node_id:
+        raise SystemExit(1)
 
 tree = bpy.data.node_groups.new("BN_Installed_Toggle_Test", "ShaderNodeTree")
 tree.use_fake_user = True

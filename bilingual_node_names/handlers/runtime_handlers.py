@@ -2,7 +2,7 @@ import bpy
 from bpy.app.handlers import persistent
 
 from ..preferences import get_preferences
-from ..services import labels, scanner, search
+from ..services import labels, node_registry, scanner, search
 
 
 _timer_running = False
@@ -11,6 +11,7 @@ _timer_running = False
 @persistent
 def on_load_post(_):
     scanner.cache.clear()
+    node_registry.rebuild()
     search.rebuild_index()
     preferences = get_preferences()
     for tree in scanner.iter_all_trees():
@@ -33,6 +34,9 @@ def monitor_timer():
         return None
     preferences = get_preferences()
     interval = getattr(preferences, "monitor_interval", 0.75)
+    if not node_registry.discovered:
+        node_registry.rebuild()
+        search.rebuild_index()
     if getattr(preferences, "monitor_enabled", True) and getattr(preferences, "auto_apply_new_nodes", True):
         scanner.scan_new_nodes(preferences)
     return max(0.5, interval)

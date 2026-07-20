@@ -26,11 +26,14 @@ class SearchService:
 
     def rebuild_index(self):
         self.index = []
-        for node_id, entry in self.translations.nodes.items():
+        node_ids = set(self.translations.nodes) | set(self.registry.entries)
+        for node_id in node_ids:
             if not self.registry.exists(node_id):
                 continue
+            entry = dict(self.registry.entries.get(node_id, {}))
+            entry.update(self.translations.nodes.get(node_id, {}))
             english = entry.get("english", node_id)
-            japanese = entry.get("japanese", "")
+            japanese = entry.get("japanese", "") or self.translations.translate_japanese(english)
             aliases = [*entry.get("aliases_en", []), *entry.get("aliases_ja", [])]
             names = [english, japanese, entry.get("japanese_short", ""), node_id]
             searchable = [self.normalize_query(value) for value in [*names, *aliases, entry.get("description_ja", "")]]

@@ -109,6 +109,24 @@ class BilingualNodeTests(unittest.TestCase):
         self.assertTrue(changed)
         self.assertEqual(node.label, "Noise Texture / ノイズテクスチャ")
 
+    def test_new_blender_node_is_discovered_automatically(self):
+        node_id = "GeometryNodeMergeLayers"
+        if not hasattr(bpy.types, node_id):
+            self.skipTest("Merge Layers is not available in this Blender version")
+        self.assertNotIn(node_id, translations.nodes)
+        english = search.search("Merge Layers", "GeometryNodeTree")
+        japanese = search.search("レイヤー統合", "GeometryNodeTree")
+        self.assertTrue(english)
+        self.assertTrue(japanese)
+        self.assertEqual(english[0].node_id, node_id)
+        self.assertEqual(japanese[0].node_id, node_id)
+        tree = bpy.data.node_groups.new("BN_New_Node_Test", "GeometryNodeTree")
+        try:
+            node = tree.nodes.new(node_id)
+            self.assertEqual(labels.build_label(node), "Merge Layers / レイヤー統合")
+        finally:
+            bpy.data.node_groups.remove(tree)
+
 
 suite = unittest.defaultTestLoader.loadTestsFromTestCase(BilingualNodeTests)
 result = unittest.TextTestRunner(verbosity=2).run(suite)

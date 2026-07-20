@@ -165,7 +165,7 @@ class StrictCoreTests(unittest.TestCase):
         failures = []
         for tree_type in ("GeometryNodeTree", "ShaderNodeTree"):
             tree = bpy.data.node_groups.new(f"BN_All_{tree_type}", tree_type)
-            for node_id, entry in translations.nodes.items():
+            for node_id, entry in node_registry.entries.items():
                 if tree_type not in entry.get("tree_types", []):
                     continue
                 if not node_registry.exists(node_id):
