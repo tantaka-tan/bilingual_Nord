@@ -1,0 +1,18 @@
+# Local Blender runtimes
+/blender-*/
+
+# Generated test artifacts
+/.test-runtime/
+
+# Release packages are uploaded to GitHub Releases
+/*.zip
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Editor and OS files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "translation_revision": "2026.07.20",
+  "nodes": {
+    "ShaderNodeMath": {
+      "dynamic_title": {"property": "operation", "mode": "operation_only", "values": {
+        "ADD": {"english": "Add", "japanese": "加算"},
+        "SUBTRACT": {"english": "Subtract", "japanese": "減算"},
+        "MULTIPLY": {"english": "Multiply", "japanese": "乗算"},
+        "DIVIDE": {"english": "Divide", "japanese": "除算"},
+        "POWER": {"english": "Power", "japanese": "累乗"},
+        "MINIMUM": {"english": "Minimum", "japanese": "最小"},
+        "MAXIMUM": {"english": "Maximum", "japanese": "最大"},
+        "LESS_THAN": {"english": "Less Than", "japanese": "より小さい"},
+        "GREATER_THAN": {"english": "Greater Than", "japanese": "より大きい"}
+      }}
+    },
+    "ShaderNodeVectorMath": {
+      "dynamic_title": {"property": "operation", "mode": "operation_only", "values": {
+        "ADD": {"english": "Add", "japanese": "加算"},
+        "SUBTRACT": {"english": "Subtract", "japanese": "減算"},
+        "MULTIPLY": {"english": "Multiply", "japanese": "乗算"},
+        "DIVIDE": {"english": "Divide", "japanese": "除算"},
+        "DOT_PRODUCT": {"english": "Dot Product", "japanese": "内積"},
+        "CROSS_PRODUCT": {"english": "Cross Product", "japanese": "外積"},
+        "DISTANCE": {"english": "Distance", "japanese": "距離"},
+        "NORMALIZE": {"english": "Normalize", "japanese": "正規化"}
+      }}
+    },
+    "FunctionNodeBooleanMath": {
+      "dynamic_title": {"property": "operation", "mode": "operation_only", "values": {
+        "AND": {"english": "And", "japanese": "かつ"},
+        "OR": {"english": "Or", "japanese": "または"},
+        "NOT": {"english": "Not", "japanese": "否定"},
+        "XOR": {"english": "Exclusive Or", "japanese": "排他的論理和"}
+      }}
+    }
+  }
+}

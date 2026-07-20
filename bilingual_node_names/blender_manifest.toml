@@ -1,0 +1,9 @@
+schema_version = "1.0.0"
+id = "bilingual_node_names"
+version = "0.2.0"
+name = "Bilingual Node Names"
+tagline = "Show and search node names in English and Japanese"
+maintainer = "Bilingual Node Names contributors"
+type = "add-on"
+blender_version_min = "4.2.0"
+license = ["SPDX:GPL-3.0-or-later"]

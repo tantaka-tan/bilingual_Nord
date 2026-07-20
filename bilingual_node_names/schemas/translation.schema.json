@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["schema_version", "translation_revision", "nodes"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "translation_revision": {"type": "string", "minLength": 1},
+    "nodes": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "english": {"type": "string"},
+          "japanese": {"type": "string"},
+          "japanese_short": {"type": "string"},
+          "tree_types": {"type": "array", "items": {"enum": ["GeometryNodeTree", "ShaderNodeTree"]}},
+          "aliases_en": {"type": "array", "items": {"type": "string"}},
+          "aliases_ja": {"type": "array", "items": {"type": "string"}}
+        }
+      }
+    }
+  }
+}
