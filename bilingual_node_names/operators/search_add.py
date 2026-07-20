@@ -2,13 +2,13 @@ import bpy
 from bpy.props import EnumProperty
 
 from ..preferences import get_preferences
-from ..services import labels, scanner, search
+from ..services import labels, node_registry, scanner, search
 
 
 def search_items(self, context):
     tree = scanner.current_tree(context)
     tree_type = tree.bl_idname if tree else None
-    results = search.search(tree_type=tree_type, limit=500)
+    results = search.search(tree_type=tree_type, limit=5000)
     space = getattr(context, "space_data", None)
     shader_type = getattr(space, "shader_type", "")
     object_type = getattr(getattr(context, "object", None), "type", "")
@@ -53,8 +53,8 @@ class BN_OT_search_add_node(bpy.types.Operator):
             self.report({"ERROR"}, "Node is not available in this node tree")
             return {"CANCELLED"}
         try:
-            node = tree.nodes.new(type=self.node_type)
-        except RuntimeError as exc:
+            node = node_registry.create_node(tree, self.node_type)
+        except (OSError, RuntimeError) as exc:
             self.report({"ERROR"}, f"Could not add node: {exc}")
             return {"CANCELLED"}
         for existing in tree.nodes:
@@ -62,6 +62,16 @@ class BN_OT_search_add_node(bpy.types.Operator):
         node.select = True
         tree.nodes.active = node
         node.location = getattr(tree, "view_center", (0.0, 0.0))
-        labels.apply(node, get_preferences(context), force=True)
+        preferences = get_preferences(context)
+        if entry.get("kind") == "ASSET":
+            labels.apply_names(
+                node,
+                entry["english"],
+                entry.get("japanese", ""),
+                preferences,
+                force=True,
+            )
+        else:
+            labels.apply(node, preferences, force=True)
         self.report({"INFO"}, f"Added {node.label}")
         return {"FINISHED"}

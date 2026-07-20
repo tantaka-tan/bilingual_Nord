@@ -2,6 +2,8 @@ import bpy
 
 from ..constants import (
     MANAGEMENT_PROPERTIES,
+    PROP_CUSTOM_ENGLISH,
+    PROP_CUSTOM_JAPANESE,
     PROP_DISPLAY_ENABLED,
     PROP_GENERATED_LABEL,
     PROP_MANAGED,
@@ -23,9 +25,16 @@ class LabelService:
         preferences = preferences or get_preferences()
         use_short = getattr(preferences, "use_short_japanese", False)
         use_dynamic = getattr(preferences, "use_dynamic_titles", True)
-        english, japanese = self.translations.get_display_names(
-            node, use_short, use_dynamic, bpy.app.version
-        )
+        english = node.get(PROP_CUSTOM_ENGLISH, "")
+        japanese = node.get(PROP_CUSTOM_JAPANESE, "")
+        node_tree = getattr(node, "node_tree", None)
+        if not english and node_tree is not None and getattr(node_tree, "asset_data", None) is not None:
+            english = node_tree.name
+            japanese = self.translations.translate_japanese(english)
+        if not english:
+            english, japanese = self.translations.get_display_names(
+                node, use_short, use_dynamic, bpy.app.version
+            )
         mode = getattr(preferences, "display_mode", "EN_JA")
         separator = getattr(preferences, "separator", " / ") or " / "
         if mode == "EN_ONLY" or not japanese:
@@ -91,6 +100,11 @@ class LabelService:
         if not self.translations.get_node_entry(node.bl_idname, bpy.app.version):
             self.diagnostics.missing(node.bl_idname)
         return True, "APPLIED"
+
+    def apply_names(self, node, english, japanese, preferences=None, force=False):
+        node[PROP_CUSTOM_ENGLISH] = english
+        node[PROP_CUSTOM_JAPANESE] = japanese
+        return self.apply(node, preferences, force)
 
     def set_display_enabled(self, node, enabled, preferences=None):
         preferences = preferences or get_preferences()

@@ -56,3 +56,20 @@ with bpy.context.temp_override(area=area, region=region, space_data=space, activ
         if node is None or node.bl_idname != node_id or node.label != expected_label:
             raise SystemExit(1)
         print("INSTALLED_OPERATOR_ADD_OK", node.bl_idname, node.label)
+
+    for query, asset_name, expected_label in (
+        ("Cloth Dynamics", "Cloth Dynamics (Experimental)", "Cloth Dynamics (Experimental) / クロス力学（実験的）"),
+        ("Collider", "Collider", "Collider / コライダー"),
+    ):
+        matches = services.search.search(query, "GeometryNodeTree")
+        if not matches:
+            raise SystemExit(1)
+        result = bpy.ops.node.bn_search_add_node("EXEC_DEFAULT", node_type=matches[0].node_id)
+        node = tree.nodes.active
+        if result != {"FINISHED"}:
+            raise SystemExit(1)
+        if node is None or node.bl_idname != "GeometryNodeGroup":
+            raise SystemExit(1)
+        if node.node_tree.name != asset_name or node.label != expected_label:
+            raise SystemExit(1)
+        print("INSTALLED_ASSET_ADD_OK", node.node_tree.name, node.label)

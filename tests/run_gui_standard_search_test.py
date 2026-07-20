@@ -18,6 +18,8 @@ values = sys.argv[sys.argv.index("--") + 1 :] if "--" in sys.argv else []
 parser = argparse.ArgumentParser()
 parser.add_argument("--result", required=True)
 parser.add_argument("--screenshot", required=True)
+parser.add_argument("--query", default="set position")
+parser.add_argument("--expected", default="Set Position / 位置を設定")
 arguments = parser.parse_args(values)
 result_path = Path(arguments.result).resolve()
 screenshot_path = Path(arguments.screenshot).resolve()
@@ -74,7 +76,7 @@ def open_add_menu():
 def type_query():
     try:
         window = bpy.context.window
-        for character in "set position":
+        for character in arguments.query:
             event_type = "SPACE" if character == " " else character.upper()
             window.event_simulate(type=event_type, value="PRESS", unicode=character)
             window.event_simulate(type=event_type, value="RELEASE")
@@ -90,8 +92,8 @@ def capture_and_accept():
         addon.unregister()
         write_result(
             "ok",
-            query="set position",
-            expected_result="Set Position / 位置を設定",
+            query=arguments.query,
+            expected_result=arguments.expected,
             screenshot=str(screenshot_path),
         )
         bpy.ops.wm.quit_blender()

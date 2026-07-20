@@ -1,6 +1,8 @@
+import hashlib
 import os
 import sys
 from contextlib import contextmanager
+from pathlib import Path
 
 import bpy
 
@@ -55,6 +57,7 @@ class NodeRegistry:
         self.diagnostics = diagnostics
         self.registered = set()
         self.entries = {}
+        self.asset_signature = ()
         self.discovered = False
 
     @staticmethod
@@ -99,7 +102,93 @@ class NodeRegistry:
         return candidates
 
     def is_stale(self):
-        return self.registered != self.candidate_ids()
+        return self.registered != self.candidate_ids() or self.asset_signature != self.current_asset_signature()
+
+    @staticmethod
+    def asset_libraries():
+        libraries = {}
+        for resource_type in ("LOCAL", "SYSTEM"):
+            root = Path(bpy.utils.resource_path(resource_type)) / "datafiles" / "assets" / "nodes"
+            if not root.is_dir():
+                continue
+            for path in root.glob("*.blend"):
+                filename = path.name.casefold()
+                if filename.startswith("geometry_nodes"):
+                    tree_type = "GeometryNodeTree"
+                elif filename.startswith("shading_nodes"):
+                    tree_type = "ShaderNodeTree"
+                else:
+                    continue
+                libraries[str(path.resolve())] = tree_type
+        return libraries
+
+    @classmethod
+    def current_asset_signature(cls):
+        signature = []
+        for path in cls.asset_libraries():
+            try:
+                stat = Path(path).stat()
+            except OSError:
+                continue
+            signature.append((path, stat.st_mtime_ns, stat.st_size))
+        return tuple(sorted(signature))
+
+    def discover_assets(self):
+        for library_path, tree_type in self.asset_libraries().items():
+            try:
+                with bpy.data.libraries.load(library_path, assets_only=True) as (source, _target):
+                    names = list(source.node_groups)
+            except (OSError, RuntimeError):
+                continue
+            for asset_name in names:
+                digest = hashlib.sha1(f"{library_path}\0{asset_name}".encode("utf-8")).hexdigest()[:20]
+                asset_id = f"BNAsset_{digest}"
+                self.entries[asset_id] = {
+                    "english": asset_name,
+                    "tree_types": [tree_type],
+                    "kind": "ASSET",
+                    "asset_library": library_path,
+                    "asset_name": asset_name,
+                }
+
+    @staticmethod
+    def _existing_asset_group(entry):
+        for node_group in bpy.data.node_groups:
+            if (
+                node_group.get("_bn_asset_library") == entry["asset_library"]
+                and node_group.get("_bn_asset_name") == entry["asset_name"]
+            ):
+                return node_group
+        return None
+
+    def load_asset_group(self, entry):
+        node_group = self._existing_asset_group(entry)
+        if node_group is not None:
+            return node_group
+        library_path = entry["asset_library"]
+        asset_name = entry["asset_name"]
+        with bpy.data.libraries.load(library_path, link=False, assets_only=True) as (source, target):
+            if asset_name not in source.node_groups:
+                raise RuntimeError(f"Node asset is no longer available: {asset_name}")
+            target.node_groups = [asset_name]
+        node_group = target.node_groups[0]
+        if node_group is None or node_group.bl_idname not in entry["tree_types"]:
+            if node_group is not None:
+                bpy.data.node_groups.remove(node_group)
+            raise RuntimeError(f"Node asset has an incompatible tree type: {asset_name}")
+        node_group["_bn_asset_library"] = library_path
+        node_group["_bn_asset_name"] = asset_name
+        return node_group
+
+    def create_node(self, tree, node_id):
+        entry = self.entries.get(node_id, {})
+        if entry.get("kind") != "ASSET":
+            return tree.nodes.new(node_id)
+        node_group = self.load_asset_group(entry)
+        group_node_type = "GeometryNodeGroup" if tree.bl_idname == "GeometryNodeTree" else "ShaderNodeGroup"
+        node = tree.nodes.new(group_node_type)
+        node.node_tree = node_group
+        return node
 
     def rebuild(self):
         candidates = self.candidate_ids()
@@ -132,6 +221,8 @@ class NodeRegistry:
                             "english": english,
                             "tree_types": tree_types,
                         }
+            self.discover_assets()
+            self.asset_signature = self.current_asset_signature()
             self.discovered = True
         finally:
             for tree in trees.values():
@@ -140,4 +231,4 @@ class NodeRegistry:
         return self.registered
 
     def exists(self, bl_idname):
-        return bl_idname in self.registered or hasattr(bpy.types, bl_idname)
+        return bl_idname in self.entries or bl_idname in self.registered or hasattr(bpy.types, bl_idname)

@@ -204,8 +204,12 @@ class StrictCoreTests(unittest.TestCase):
                 if not node_registry.exists(node_id):
                     continue
                 try:
-                    node = tree.nodes.new(node_id)
-                    labels.apply(node, force=True)
+                    node = node_registry.create_node(tree, node_id)
+                    if entry.get("kind") == "ASSET":
+                        resolved = search.get_entry(node_id)
+                        labels.apply_names(node, resolved["english"], resolved["japanese"], force=True)
+                    else:
+                        labels.apply(node, force=True)
                     self.assertTrue(node.label)
                     tree.nodes.remove(node)
                 except Exception as exc:
@@ -234,6 +238,7 @@ class StrictCoreTests(unittest.TestCase):
         actual = {
             (node_id, tree_type)
             for node_id, entry in node_registry.entries.items()
+            if entry.get("kind") != "ASSET"
             for tree_type in entry.get("tree_types", [])
         }
         print(json.dumps({
@@ -243,6 +248,34 @@ class StrictCoreTests(unittest.TestCase):
             "registered_pairs": len(actual),
         }))
         self.assertEqual(actual, expected)
+
+    def test_cloth_and_collider_assets_search_and_add(self):
+        if bpy.app.version < (5, 2, 0):
+            self.skipTest("Dynamics node assets are not bundled before Blender 5.2")
+        _, _, _, area, _ = create_shader_context()
+        obj, tree, region = create_geometry_context(area)
+        cases = (
+            ("Cloth Dynamics", "クロス力学", "Cloth Dynamics (Experimental)", "クロス力学（実験的）"),
+            ("Collider", "コライダー", "Collider", "コライダー"),
+        )
+        with bpy.context.temp_override(area=area, region=region, space_data=area.spaces.active, active_object=obj, object=obj):
+            for english_query, japanese_query, asset_name, japanese_name in cases:
+                english = search.search(english_query, "GeometryNodeTree")
+                japanese = search.search(japanese_query, "GeometryNodeTree")
+                self.assertTrue(english)
+                self.assertTrue(japanese)
+                self.assertEqual(english[0].node_id, japanese[0].node_id)
+                entry = search.get_entry(english[0].node_id)
+                self.assertEqual(entry.get("kind"), "ASSET")
+                result = bpy.ops.node.bn_search_add_node("EXEC_DEFAULT", node_type=english[0].node_id)
+                self.assertEqual(result, {"FINISHED"})
+                node = tree.nodes.active
+                self.assertEqual(node.bl_idname, "GeometryNodeGroup")
+                self.assertEqual(node.node_tree.name, asset_name)
+                self.assertEqual(node.label, f"{asset_name} / {japanese_name}")
+                standard_node = tree.nodes.new("GeometryNodeGroup")
+                standard_node.node_tree = node.node_tree
+                self.assertEqual(labels.build_label(standard_node), f"{asset_name} / {japanese_name}")
 
     def test_runtime_custom_node_registration_is_detected(self):
         node_id = BNTestRuntimeNode.bl_idname
