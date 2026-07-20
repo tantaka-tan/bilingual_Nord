@@ -127,6 +127,24 @@ class BilingualNodeTests(unittest.TestCase):
         finally:
             bpy.data.node_groups.remove(tree)
 
+    def test_sample_sound_frequencies_is_discovered_automatically(self):
+        node_id = "GeometryNodeSampleSoundFrequencies"
+        if not hasattr(bpy.types, node_id):
+            self.skipTest("Sample Sound Frequencies is not available in this Blender version")
+        self.assertNotIn(node_id, translations.nodes)
+        english = search.search("Sample Sound Frequencies", "GeometryNodeTree")
+        japanese = search.search("音声周波数サンプル", "GeometryNodeTree")
+        self.assertTrue(english)
+        self.assertTrue(japanese)
+        self.assertEqual(english[0].node_id, node_id)
+        self.assertEqual(japanese[0].node_id, node_id)
+        tree = bpy.data.node_groups.new("BN_Sound_Frequencies_Test", "GeometryNodeTree")
+        try:
+            node = tree.nodes.new(node_id)
+            self.assertEqual(labels.build_label(node), "Sample Sound Frequencies / 音声周波数サンプル")
+        finally:
+            bpy.data.node_groups.remove(tree)
+
 
 suite = unittest.defaultTestLoader.loadTestsFromTestCase(BilingualNodeTests)
 result = unittest.TextTestRunner(verbosity=2).run(suite)
