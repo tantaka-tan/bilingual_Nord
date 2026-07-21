@@ -188,6 +188,22 @@ class StrictCoreTests(unittest.TestCase):
             result = bpy.ops.node.bn_search_add_node("EXEC_DEFAULT", node_type=cross_tree_node_id)
             self.assertEqual(result, {"FINISHED"})
             self.assertEqual(tree.nodes.active.bl_idname, cross_tree_node_id)
+            voronoi_node_id = "ShaderNodeTexVoronoi"
+            self.assertEqual(
+                set(search.get_entry(voronoi_node_id)["tree_types"]),
+                {"GeometryNodeTree", "ShaderNodeTree"},
+            )
+            self.assertEqual(
+                search.search("Voronoi Texture", "GeometryNodeTree")[0].node_id,
+                voronoi_node_id,
+            )
+            self.assertEqual(
+                search.search("ボロノイテクスチャ", "GeometryNodeTree")[0].node_id,
+                voronoi_node_id,
+            )
+            result = bpy.ops.node.bn_search_add_node("EXEC_DEFAULT", node_type=voronoi_node_id)
+            self.assertEqual(result, {"FINISHED"})
+            self.assertEqual(tree.nodes.active.bl_idname, voronoi_node_id)
             scanner.rebuild_cache()
             new_node = tree.nodes.new("GeometryNodeJoinGeometry")
             self.assertEqual(new_node.label, "")
@@ -248,6 +264,24 @@ class StrictCoreTests(unittest.TestCase):
             "registered_pairs": len(actual),
         }))
         self.assertEqual(actual, expected)
+
+    def test_every_registry_entry_is_searchable_in_every_discovered_tree(self):
+        failures = []
+        for node_id, registry_entry in node_registry.entries.items():
+            resolved = search.get_entry(node_id)
+            if resolved is None:
+                failures.append(f"{node_id}:missing resolved entry")
+                continue
+            expected_trees = set(registry_entry.get("tree_types", []))
+            resolved_trees = set(resolved.get("tree_types", []))
+            if resolved_trees != expected_trees:
+                failures.append(f"{node_id}:trees:{sorted(resolved_trees)}!={sorted(expected_trees)}")
+                continue
+            for tree_type in expected_trees:
+                matches = search.search(resolved["english"], tree_type, limit=5000)
+                if node_id not in {item.node_id for item in matches}:
+                    failures.append(f"{tree_type}:{node_id}:not searchable as {resolved['english']}")
+        self.assertEqual(failures, [], "\n".join(failures))
 
     def test_cloth_and_collider_assets_search_and_add(self):
         if bpy.app.version < (5, 2, 0):

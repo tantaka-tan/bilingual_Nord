@@ -48,6 +48,7 @@ with bpy.context.temp_override(area=area, region=region, space_data=space, activ
     for node_id, expected_label in (
         (sound_node_id, "Sample Sound Frequencies / 音声周波数サンプル"),
         ("ShaderNodeClamp", "Clamp / 範囲制限"),
+        ("ShaderNodeTexVoronoi", "Voronoi Texture / ボロノイテクスチャ"),
     ):
         result = bpy.ops.node.bn_search_add_node("EXEC_DEFAULT", node_type=node_id)
         node = tree.nodes.active

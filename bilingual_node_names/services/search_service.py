@@ -26,10 +26,8 @@ class SearchService:
 
     def rebuild_index(self):
         self.index = []
-        node_ids = set(self.translations.nodes) | set(self.registry.entries)
+        node_ids = set(self.registry.entries)
         for node_id in node_ids:
-            if not self.registry.exists(node_id):
-                continue
             entry = self.get_entry(node_id)
             english = entry.get("english", node_id)
             japanese = entry.get("japanese", "")
@@ -47,10 +45,11 @@ class SearchService:
         return self.index
 
     def get_entry(self, node_id):
-        if not self.registry.exists(node_id):
+        registry_entry = self.registry.entries.get(node_id)
+        if registry_entry is None:
             return None
-        entry = dict(self.registry.entries.get(node_id, {}))
-        entry.update(self.translations.nodes.get(node_id, {}))
+        entry = dict(self.translations.nodes.get(node_id, {}))
+        entry.update(registry_entry)
         english = entry.get("english", node_id)
         entry["english"] = english
         entry["japanese"] = entry.get("japanese", "") or self.translations.translate_japanese(english)
