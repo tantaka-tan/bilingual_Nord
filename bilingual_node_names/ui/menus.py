@@ -14,7 +14,8 @@ class BN_MT_bilingual_add(bpy.types.Menu):
         if not items:
             layout.label(text="No compatible nodes / 候補なし")
             return
-        for node_id, label, description in items:
+        for item in items:
+            node_id, label, description = item[:3]
             operator = layout.operator(
                 "node.bn_search_add_node",
                 text=label,

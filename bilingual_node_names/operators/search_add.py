@@ -1,17 +1,39 @@
 import bpy
-from bpy.props import EnumProperty
+from bpy.props import EnumProperty, StringProperty
 
 from ..preferences import get_preferences
 from ..services import labels, node_registry, scanner, search
 
 
+_enum_items_cache = {}
+_enum_cache_generation = None
+_enum_values = {}
+
+
+def enum_value(node_id):
+    value = _enum_values.get(node_id)
+    if value is None:
+        value = len(_enum_values) + 1
+        _enum_values[node_id] = value
+    return value
+
+
 def search_items(self, context):
+    global _enum_cache_generation
     tree = scanner.current_tree(context)
     tree_type = tree.bl_idname if tree else None
-    results = search.search(tree_type=tree_type, limit=5000)
     space = getattr(context, "space_data", None)
     shader_type = getattr(space, "shader_type", "")
     object_type = getattr(getattr(context, "object", None), "type", "")
+    if _enum_cache_generation != search.generation:
+        _enum_items_cache.clear()
+        _enum_cache_generation = search.generation
+    cache_key = (tree_type, shader_type, object_type)
+    cached = _enum_items_cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    results = search.search(tree_type=tree_type, limit=5000)
     if tree_type == "ShaderNodeTree":
         excluded = set()
         if shader_type != "WORLD":
@@ -23,10 +45,12 @@ def search_items(self, context):
         else:
             excluded.add("ShaderNodeOutputLight")
         results = [result for result in results if result.node_id not in excluded]
-    return [
-        (result.node_id, result.label, result.description or result.node_id)
+    items = [
+        (result.node_id, result.label, result.description or result.node_id, "NONE", enum_value(result.node_id))
         for result in results
     ]
+    _enum_items_cache[cache_key] = items
+    return items
 
 
 class BN_OT_search_add_node(bpy.types.Operator):
@@ -34,26 +58,31 @@ class BN_OT_search_add_node(bpy.types.Operator):
     bl_label = "Bilingual Node Search"
     bl_description = "Search nodes using English, Japanese, or aliases"
     bl_options = {"REGISTER", "UNDO"}
+    bl_property = "search_selection"
 
-    node_type: EnumProperty(name="Node", items=search_items)
+    node_type: StringProperty(name="Node Type", options={"HIDDEN"})
+    search_selection: EnumProperty(name="Node", items=search_items)
 
     @classmethod
     def poll(cls, context):
         return scanner.current_tree(context) is not None
 
     def invoke(self, context, event):
-        return context.window_manager.invoke_search_popup(self)
+        self.node_type = ""
+        context.window_manager.invoke_search_popup(self)
+        return {"RUNNING_MODAL"}
 
     def execute(self, context):
         tree = scanner.current_tree(context)
-        if not tree or not self.node_type:
+        node_id = self.node_type or self.search_selection
+        if not tree or not node_id:
             return {"CANCELLED"}
-        entry = search.get_entry(self.node_type)
+        entry = search.get_entry(node_id)
         if not entry or tree.bl_idname not in entry.get("tree_types", [tree.bl_idname]):
             self.report({"ERROR"}, "Node is not available in this node tree")
             return {"CANCELLED"}
         try:
-            node = node_registry.create_node(tree, self.node_type)
+            node = node_registry.create_node(tree, node_id)
         except (OSError, RuntimeError) as exc:
             self.report({"ERROR"}, f"Could not add node: {exc}")
             return {"CANCELLED"}

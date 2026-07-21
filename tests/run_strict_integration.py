@@ -23,6 +23,7 @@ from bilingual_node_names.constants import (
 from bilingual_node_names.services import labels, node_registry, scanner, search, translations
 from bilingual_node_names.services.node_registry import suppress_native_output
 from bilingual_node_names.handlers import runtime_handlers
+from bilingual_node_names.operators.search_add import search_items
 
 
 class BNTestRuntimeNode(bpy.types.Node):
@@ -282,6 +283,31 @@ class StrictCoreTests(unittest.TestCase):
                 if node_id not in {item.node_id for item in matches}:
                     failures.append(f"{tree_type}:{node_id}:not searchable as {resolved['english']}")
         self.assertEqual(failures, [], "\n".join(failures))
+
+    def test_dynamic_enum_ids_remain_stable_across_contexts_and_rebuilds(self):
+        _, _, _, area, region = create_shader_context()
+        with bpy.context.temp_override(area=area, region=region, space_data=area.spaces.active):
+            shader_items = search_items(None, bpy.context)
+            self.assertIs(shader_items, search_items(None, bpy.context))
+        shader_values = {item[0]: item[4] for item in shader_items}
+
+        obj, _, region = create_geometry_context(area)
+        with bpy.context.temp_override(area=area, region=region, space_data=area.spaces.active, active_object=obj, object=obj):
+            geometry_items = search_items(None, bpy.context)
+        geometry_values = {item[0]: item[4] for item in geometry_items}
+        common = set(shader_values) & set(geometry_values)
+        self.assertTrue(common)
+        self.assertTrue(all(shader_values[node_id] == geometry_values[node_id] for node_id in common))
+        self.assertEqual(len(set(geometry_values.values())), len(geometry_values))
+
+        before = geometry_values["ShaderNodeTexVoronoi"]
+        node_registry.rebuild()
+        search.rebuild_index()
+        with bpy.context.temp_override(area=area, region=region, space_data=area.spaces.active, active_object=obj, object=obj):
+            rebuilt_items = search_items(None, bpy.context)
+        rebuilt_values = {item[0]: item[4] for item in rebuilt_items}
+        self.assertIsNot(rebuilt_items, geometry_items)
+        self.assertEqual(rebuilt_values["ShaderNodeTexVoronoi"], before)
 
     def test_cloth_and_collider_assets_search_and_add(self):
         if bpy.app.version < (5, 2, 0):

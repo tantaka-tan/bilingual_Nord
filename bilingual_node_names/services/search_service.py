@@ -16,6 +16,7 @@ class SearchService:
         self.translations = translations
         self.registry = registry
         self.index = []
+        self.generation = 0
 
     @staticmethod
     def normalize_query(text):
@@ -42,6 +43,7 @@ class SearchService:
                 "aliases": [self.normalize_query(value) for value in aliases if value],
                 "searchable": searchable,
             })
+        self.generation += 1
         return self.index
 
     def get_entry(self, node_id):
